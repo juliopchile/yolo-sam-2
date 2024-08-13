@@ -19,13 +19,7 @@ conda activate yolo-sam-2
 pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 ```
 
-### Step 1) Clone this repository
-```bash
-git clone https://github.com/juliopchile/yolo-sam-2.git
-cd yolo-sam-2
-```
-
-### Step 2) Clone and succesfully install Meta's Segment Anything 2 repository
+### Step 1) Clone and succesfully install Meta's Segment Anything 2 repository
 SAM 2 and all its dependencies will be installed inside this project repository and used as a package for importing the necessary libraries.
 ```bash
 git clone https://github.com/facebookresearch/segment-anything-2.git
@@ -38,8 +32,65 @@ Due to a bug in the segment-anything-2 codebase, after installation, you need to
 python setup.py build_ext --inplace
 ```
 
-### Step 3) Install other dependencies
-This proyect uses `Ultralytics`
+### Step 2) Download SAM2 weights
 ```bash
-pip install Ultralytics
+cd checkpoints && \
+./download_ckpts.sh && \
+cd ..
+```
+or individually from:
+
+- [sam2_hiera_tiny.pt](https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_tiny.pt)
+- [sam2_hiera_small.pt](https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_small.pt)
+- [sam2_hiera_base_plus.pt](https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_base_plus.pt)
+- [sam2_hiera_large.pt](https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_large.pt)
+
+### Step 3) Manually modify the a SAM2 function
+Modify the `_load_img_as_tensor()` function inside `segment_anything_2/sam2/utils/misc.py`. This function is at the moment of the creation of this proyect, faulty, so it need to be changed to work properly.
+
+Original:
+```python
+def _load_img_as_tensor(img_path, image_size):
+    img_pil = Image.open(img_path)
+    img_np = np.array(img_pil.convert("RGB").resize((image_size, image_size)))
+    if img_np.dtype == np.uint8:  # np.uint8 is expected for JPEG images
+        img_np = img_np / 255.0
+    else:
+        raise RuntimeError(f"Unknown image dtype: {img_np.dtype} on {img_path}")
+    img = torch.from_numpy(img_np).permute(2, 0, 1)
+    video_width, video_height = img_pil.size  # the original video size
+    return img, video_height, video_width
+```
+
+Modified:
+```python
+def _load_img_as_tensor(img_path, image_size):
+    # Open and convert image to RGB
+    img_pil = Image.open(img_path).convert("RGB")
+    # Resize the image
+    img_resized = img_pil.resize((image_size, image_size))
+    # Convert the PIL image to a numpy array
+    img_np = np.array(img_resized)
+    # Ensure the array is of type np.uint8
+    if img_np.dtype != np.uint8:
+        img_np = img_np.astype(np.uint8)
+    # Normalize the numpy array if it's uint8
+    img_np = img_np / 255.0 if img_np.dtype == np.uint8 else img_np
+    # Convert numpy array to a PyTorch tensor and permute dimensions
+    img_tensor = torch.from_numpy(img_np).permute(2, 0, 1)
+    video_width, video_height = img_pil.size  # the original video size
+    return img_tensor, video_height, video_width
+```
+
+### Step 4) Clone this repository
+```bash
+git clone https://github.com/juliopchile/yolo-sam-2.git
+cd yolo-sam-2
+```
+
+### Step 5) Install other dependencies
+This proyect uses Ultralytics and notebooks, alongside Matplotlib and OpenCV.
+```bash
+conda install ipykernel
+pip install Ultralytics matplotlib opencv-python
 ```
